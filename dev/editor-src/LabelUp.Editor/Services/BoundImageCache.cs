@@ -25,6 +25,36 @@ public static class BoundImageCache
         return null;
     }
 
+    public static bool IsLoaded(string? src)
+        => !string.IsNullOrWhiteSpace(src) && Bitmaps.TryGetValue(src, out var bmp) && bmp != null;
+
+    /// <summary>이미 화소를 가진 그림을 URL 로 올렸을 때, 다시 받지 않도록 미리 넣어 둔다.</summary>
+    public static void Put(string src, SKBitmap bitmap)
+    {
+        if (string.IsNullOrWhiteSpace(src)) return;
+        Bitmaps[src] = bitmap;
+    }
+
+    /// <summary>
+    /// 인쇄·내보내기처럼 한 번에 그려 끝내는 곳이 쓴다. 받는 중인 그림을 기다리지 않으면
+    /// 그 그림이 빠진 채 인쇄된다. 실패한 그림은 기다리지 않는다.
+    /// </summary>
+    public static async Task WaitForAsync(IEnumerable<string?> sources, int timeoutMs = 15000)
+    {
+        var urls = sources
+            .Where(s => !string.IsNullOrWhiteSpace(s) && LooksLikeUrl(s)
+                        && !s!.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            .Select(s => s!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (urls.Count == 0) return;
+        foreach (var url in urls)
+            Request(url);
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (urls.Any(u => !Bitmaps.ContainsKey(u)) && DateTime.UtcNow < deadline)
+            await Task.Delay(100);
+    }
+
     public static void Request(string? src)
     {
         if (string.IsNullOrWhiteSpace(src) || !LooksLikeUrl(src)) return;

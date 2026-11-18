@@ -195,6 +195,7 @@
             _page = Math.Clamp(Session.PageIndex, 0, Math.Max(0, Session.Document.Pages.Count - 1));
             Rebuild();
             _ = InvokeAsync(LoadCalibrationAsync);
+            _ = InvokeAsync(RebuildWhenImagesReadyAsync);
         }
         if (Session.Dialog != EditorDialog.PrintPreview) _opened = false;
         _ = InvokeAsync(StateHasChanged);
@@ -291,6 +292,40 @@
         }
     }
 
+    /// <summary>주소로 저장된 그림은 받아 와야 그려진다. 받는 중이면 다 받은 뒤 미리보기를 다시 그린다.</summary>
+    private async Task RebuildWhenImagesReadyAsync()
+    {
+        var sources = ImageSources(_page).ToList();
+        if (sources.All(s => string.IsNullOrWhiteSpace(s)
+                             || s.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                             || !BoundImageCache.LooksLikeUrl(s)
+                             || BoundImageCache.IsLoaded(s)))
+            return;
+        await BoundImageCache.WaitForAsync(sources);
+        if (Session.Dialog == EditorDialog.PrintPreview)
+            Rebuild();
+    }
+
+    private IEnumerable<string?> ImageSources(int? onlyPage = null)
+    {
+        var doc = Session.Document;
+        var per = doc.Paper.LabelsPerPage;
+        for (var p = 0; p < doc.Pages.Count; p++)
+        {
+            if (onlyPage is { } only && only != p) continue;
+            var cells = doc.Pages[p].Cells;
+            for (var i = 0; i < cells.Count; i++)
+            {
+                foreach (var o in cells[i].Objects)
+                {
+                    if (o.Type is ObjectType.Image or ObjectType.Clipart or ObjectType.Icon)
+                        yield return Session.ResolveObjectText(o, p * per + i);
+                }
+            }
+        }
+        yield return doc.Paper.DesignImageUrl;
+    }
+
     private void Rebuild()
     {
         try
@@ -319,6 +354,7 @@
         try
         {
             Session.ExpandCustomSerial();
+            await BoundImageCache.WaitForAsync(ImageSources());
             var clock = DateTime.Now;
             var pages = new List<byte[]>();
             for (var i = 0; i < Session.Document.Pages.Count; i++)
@@ -361,6 +397,7 @@
         try
         {
             Session.ExpandCustomSerial();
+            await BoundImageCache.WaitForAsync(ImageSources(_page));
             var clock = DateTime.Now;
             // 인쇄용 파일이므로 화면 미리보기와 달리 종이색을 넣지 않는다.
             var bytes = DocumentRenderer.ExportSheetPng(

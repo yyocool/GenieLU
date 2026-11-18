@@ -1919,9 +1919,30 @@ window.labelUpEditor = {
     return json.data || {};
   },
 
-  listWorkspaces: async function (limit) {
+  uploadEditorMedia: async function (bytes, mime) {
+    try {
+      var form = new FormData();
+      form.append('file', new Blob([bytes], { type: mime || 'application/octet-stream' }), 'image');
+      var res = await fetch(this.apiUrl('/api/editor/media'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+        body: form
+      });
+      var json = await res.json().catch(function () { return null; });
+      if (!res.ok || !json || json.success === false) {
+        return { status: res.status || 500, url: '', message: (json && json.message) || '' };
+      }
+      return { status: 200, url: (json.data && json.data.url) || '', message: '' };
+    } catch (e) {
+      return { status: 0, url: '', message: String((e && e.message) || e) };
+    }
+  },
+
+  listWorkspaces: async function (limit, offset) {
     var url = this.apiUrl('/api/editor/workspaces');
     if (limit) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + encodeURIComponent(limit);
+    if (offset) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'offset=' + encodeURIComponent(offset);
     var res = await fetch(url, {
       method: 'GET',
       credentials: 'same-origin',
@@ -1952,9 +1973,12 @@ window.labelUpEditor = {
     this._projectTrashBound = true;
     var self = this;
     var enhance = function () {
-      var cards = document.querySelectorAll('.ed-project-card');
+      var cards = Array.prototype.filter.call(document.querySelectorAll('.ed-project-card'), function (card) {
+        return !card.querySelector('.ed-project-card__trash');
+      });
       if (!cards.length) return;
-      self.listWorkspaces(48).then(function (data) {
+      var needsList = cards.some(function (card) { return !Number(card.getAttribute('data-workspace-id') || 0); });
+      (needsList ? self.listWorkspaces(48) : Promise.resolve({ items: [] })).then(function (data) {
         var items = (data && data.items) || [];
         cards.forEach(function (card, i) {
           if (card.querySelector('.ed-project-card__trash')) return;

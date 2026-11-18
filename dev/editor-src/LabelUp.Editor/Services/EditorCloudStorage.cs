@@ -66,20 +66,25 @@ public sealed class EditorCloudStorage(IJSRuntime js)
     }
 
     public async Task<IReadOnlyList<EditorWorkspaceListItem>> ListWorkspacesAsync(int limit = 24)
+        => (await ListWorkspacesPageAsync(limit, 0)).Items;
+
+    /// <summary>최근 수정순 목록의 한 구간과, 휴지통을 뺀 전체 프로젝트 수.</summary>
+    public async Task<(IReadOnlyList<EditorWorkspaceListItem> Items, int Total)> ListWorkspacesPageAsync(int limit, int offset)
     {
         try
         {
-            var raw = await js.InvokeAsync<JsonElement?>("labelUpEditor.listWorkspaces", limit);
-            if (raw is not { ValueKind: JsonValueKind.Object }) return [];
+            var raw = await js.InvokeAsync<JsonElement?>("labelUpEditor.listWorkspaces", limit, offset);
+            if (raw is not { ValueKind: JsonValueKind.Object }) return ([], 0);
             if (!raw.Value.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-                return [];
-            var list = JsonSerializer.Deserialize<List<EditorWorkspaceListItem>>(items.GetRawText(), JsonOpts);
-            return list ?? [];
+                return ([], 0);
+            var list = JsonSerializer.Deserialize<List<EditorWorkspaceListItem>>(items.GetRawText(), JsonOpts) ?? [];
+            var total = raw.Value.TryGetProperty("total", out var t) && t.TryGetInt32(out var n) ? n : offset + list.Count;
+            return (list, Math.Max(total, offset + list.Count));
         }
         catch (Exception ex)
         {
             EditorLog.Warn("프로젝트 목록 실패: " + ex.Message);
-            return [];
+            return ([], 0);
         }
     }
 

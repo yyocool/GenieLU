@@ -21,7 +21,7 @@
       <div class="ed-paper-toolbar">
         <input class="ed-paper-search" type="search" placeholder="프로젝트 이름 검색"
                @bind="_query" @bind:event="oninput" />
-        <span class="ed-paper-count">@Filtered.Count() / @_items.Count</span>
+        <span class="ed-paper-count" title="표시 중인 프로젝트 / 전체 프로젝트">@Filtered.Count() / @_total</span>
       </div>
 
       <div class="ed-modal__body ed-paper-grid ed-project-grid">
@@ -64,6 +64,18 @@
             </div>
           }
         }
+        @if (!_loading && HasMore)
+        {
+          <div class="ed-project-more">
+            <button type="button" class="ed-btn ed-clip-more-btn" disabled="@_loadingMore" @onclick="LoadMoreAsync">
+              @(_loadingMore ? "불러오는 중…" : $"더보기 ({_items.Count} / {_total})")
+            </button>
+            @if (!string.IsNullOrWhiteSpace(_query))
+            {
+              <p class="ed-clip-more">검색은 불러온 프로젝트 안에서만 찾습니다.</p>
+            }
+          </div>
+        }
       </div>
     </div>
   </div>
@@ -75,7 +87,14 @@
     private bool _tried;
     private bool _opening;
     private string? _error;
-    private IReadOnlyList<EditorWorkspaceListItem> _items = [];
+    private bool _loadingMore;
+    private int _total;
+    private List<EditorWorkspaceListItem> _items = [];
+    // 목록 응답마다 미리보기 이미지가 들어 있어 한 번에 많이 받으면 서버 메모리(128MB)를 넘는다.
+    private const int PageSize = 24;
+    private const int MoreOverlap = 8;
+
+    private bool HasMore => _items.Count < _total;
 
     private IEnumerable<EditorWorkspaceListItem> Filtered =>
         string.IsNullOrWhiteSpace(_query)
@@ -107,7 +126,9 @@
         await InvokeAsync(StateHasChanged);
         try
         {
-            _items = await Cloud.ListWorkspacesAsync(48);
+            var (items, total) = await Cloud.ListWorkspacesPageAsync(PageSize, 0);
+            _items = items.ToList();
+            _total = total;
             if (_items.Count == 0)
                 _error = "저장된 프로젝트가 없습니다. 편집기에서 저장하면 여기에 모입니다.";
         }
@@ -119,6 +140,30 @@
         finally
         {
             _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_loadingMore || !HasMore) return;
+        _loadingMore = true;
+        try
+        {
+            // 목록을 연 뒤 휴지통으로 보낸 카드만큼 서버 순서가 당겨지므로 조금 겹쳐 받고 중복은 버린다.
+            var offset = Math.Max(0, _items.Count - MoreOverlap);
+            var (items, total) = await Cloud.ListWorkspacesPageAsync(PageSize, offset);
+            var known = _items.Select(i => i.Id).ToHashSet();
+            _items.AddRange(items.Where(i => known.Add(i.Id)));
+            _total = items.Count == 0 ? _items.Count : Math.Max(total, _items.Count);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Warn("프로젝트 더보기 실패: " + ex.Message);
+        }
+        finally
+        {
+            _loadingMore = false;
             await InvokeAsync(StateHasChanged);
         }
     }

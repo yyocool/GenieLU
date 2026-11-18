@@ -10,6 +10,7 @@
 @inject DesignSaveService Save
 @inject DraftStorage Drafts
 @inject ExportService Export
+@inject MediaOffloadService Media
 @implements IDisposable
 
 <div class="ed-topbar-dock @(Session.TopBarPinned ? "is-pinned" : "is-auto")" data-ed-topbar-dock>
@@ -406,6 +407,7 @@
         try
         {
             _autoSaving = true;
+            await Media.FlushAsync();
             await Drafts.SaveAsync(Session.Document);
 
             var cloudOk = !auto;
@@ -447,6 +449,8 @@
                     pageIndex = Session.PageIndex,
                     labelIndex = Session.LabelIndex
                 };
+                // 저장 창에서 막 로그인했다면 그때 처음 그림을 올릴 수 있다.
+                await Media.FlushAsync();
                 var preview = CapturePreview();
                 var savedId = await Cloud.SaveWorkspaceAsync(Session.Document, ui, preview, Session.WorkspaceId);
                 if (savedId > 0)

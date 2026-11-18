@@ -143,22 +143,39 @@ def stamp_local_assets(out: Path) -> int:
     return 0
 
 
+INDEX_PHP = r"""<?php
+header('Content-Type: text/html; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
+$html = file_get_contents(__DIR__ . '/index.html');
+$base = rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/editor/index.php'))), '/');
+if ($base === '/' || $base === '\\') {
+    $base = '';
+}
+$endpoint = json_encode($base . '/api/access/beacon', JSON_UNESCAPED_SLASHES);
+$src = htmlspecialchars($base . '/js/access-beacon.js', ENT_QUOTES, 'UTF-8');
+$tag = '<script>window.LABELUP_ACCESS_BEACON=' . $endpoint . ';</script><script src="' . $src . '" defer></script>';
+if (!is_string($html)) {
+    return;
+}
+if (stripos($html, '</body>') !== false) {
+    echo preg_replace('~</body>~i', $tag . '</body>', $html, 1);
+    return;
+}
+echo $html, $tag;
+"""
+
+
 def write_charset_shim(out: Path) -> None:
     """Serve index.html through PHP so the charset header is right.
 
     The host sends .html without a charset and we cannot use .htaccess here,
-    so DirectoryIndex lands on this file instead. Publishing wipes
-    public/editor, so it has to be written again every time.
+    so DirectoryIndex lands on this file instead. It also injects the access
+    statistics beacon (/api/access/beacon) into the editor page. Publishing
+    wipes public/editor, so it has to be written again every time.
     """
-    (out / "index.php").write_text(
-        "<?php\n"
-        "header('Content-Type: text/html; charset=utf-8');\n"
-        "header('Cache-Control: no-store, no-cache, must-revalidate');\n"
-        "header('Pragma: no-cache');\n"
-        "readfile(__DIR__ . '/index.html');\n",
-        encoding="utf-8",
-    )
-    print("Wrote index.php charset shim")
+    (out / "index.php").write_bytes(INDEX_PHP.encode("utf-8"))
+    print("Wrote index.php (charset shim + access beacon)")
 
 
 def clean_intermediates() -> None:

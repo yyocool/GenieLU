@@ -4524,6 +4524,7 @@ html.lu-layer-applying [data-ed-props-panel] .ed-props__inner {
 .ed-paper-compat__chip.is-empty{background:#f3f4f8;color:#9ca3af;font-weight:700}
 .ed-paper-card__preview img{max-width:100%;max-height:120px;object-fit:contain}
 .ed-paper-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.ed-project-more { grid-column: 1 / -1; text-align: center; }
 .ed-paper-card {
   border: 1px solid var(--ed-border);
   border-radius: 12px;

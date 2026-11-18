@@ -3,12 +3,13 @@ using LabelUp.Editor.Rendering;
 namespace LabelUp.Editor.Services;
 
 /// <summary>상단 저장하기와 저장 확인 대화상자가 같은 저장 경로를 쓴다.</summary>
-public sealed class DesignSaveService(EditorSession session, DraftStorage drafts, EditorCloudStorage cloud)
+public sealed class DesignSaveService(EditorSession session, DraftStorage drafts, EditorCloudStorage cloud, MediaOffloadService media)
 {
     public async Task<bool> TrySaveAsync()
     {
         try
         {
+            await media.FlushAsync();
             await drafts.SaveAsync(session.Document);
 
             var loggedIn = await cloud.EnsureLoggedInForSaveAsync();
@@ -19,6 +20,7 @@ public sealed class DesignSaveService(EditorSession session, DraftStorage drafts
                 session.Notify();
                 return true;
             }
+            await media.FlushAsync();
             var layout = await cloud.GetUiLayoutAsync();
             var ui = new
             {

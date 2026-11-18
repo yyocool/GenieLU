@@ -25,8 +25,16 @@ final class EditorWorkspaceApiController extends BaseController
     {
         (new AuthMiddleware($this->auth))->handle();
         $limit = max(1, min(48, (int) ($_GET['limit'] ?? 24)));
+        $offset = max(0, (int) ($_GET['offset'] ?? 0));
+        $userId = (int) $this->auth->id();
+        $items = array_map(static function (array $item): array {
+            unset($item['preview_svg']);
+            return $item;
+        }, $this->workspaces->recentForUser($userId, $limit, false, $offset));
         $this->jsonSuccess([
-            'items' => $this->workspaces->recentForUser((int) $this->auth->id(), $limit),
+            'items' => $items,
+            'total' => $this->workspaces->countForUser($userId),
+            'offset' => $offset,
         ]);
     }
 
@@ -39,6 +47,21 @@ final class EditorWorkspaceApiController extends BaseController
             $this->jsonSuccess(null, '저장된 작업공간이 없습니다.');
         }
         $this->jsonSuccess($row);
+    }
+
+    public function media(): never
+    {
+        (new AuthMiddleware($this->auth))->handle();
+        $file = $_FILES['file'] ?? null;
+        if (!is_array($file)) {
+            $this->jsonError('그림 파일이 필요합니다.', null, 422);
+        }
+        try {
+            $url = $this->workspaces->storeUploadedMedia((int) $this->auth->id(), $file);
+            $this->jsonSuccess(['url' => $url]);
+        } catch (RuntimeException $e) {
+            $this->jsonError($e->getMessage(), null, 422);
+        }
     }
 
     public function save(): never

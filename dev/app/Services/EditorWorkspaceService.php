@@ -9,6 +9,8 @@ use RuntimeException;
 
 final class EditorWorkspaceService
 {
+    private const MEDIA_MAX_BYTES = 12_000_000;
+
     private EditorWorkspaceRepository $repo;
 
     public function __construct()
@@ -25,13 +27,18 @@ final class EditorWorkspaceService
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function recentForUser(int $userId, int $limit = 6, bool $trashed = false): array
+    public function recentForUser(int $userId, int $limit = 6, bool $trashed = false, int $offset = 0): array
     {
         $items = [];
-        foreach ($this->repo->listByUserId($userId, $limit, $trashed) as $row) {
+        foreach ($this->repo->listByUserId($userId, $limit, $trashed, $offset) as $row) {
             $items[] = $this->present($row, false);
         }
         return $items;
+    }
+
+    public function countForUser(int $userId, bool $trashed = false): int
+    {
+        return $this->repo->countByUserId($userId, $trashed);
     }
 
     public function trashForUser(int $userId, int $id): void
@@ -306,7 +313,59 @@ final class EditorWorkspaceService
             $ext = 'jpg';
         }
         $bin = base64_decode(preg_replace('/\s+/', '', $m[2]) ?? '', true);
-        if ($bin === false || strlen($bin) < 32 || strlen($bin) > 12_000_000) {
+        if ($bin === false) {
+            return null;
+        }
+        return $this->storeMediaBinary($userId, $bin, $ext);
+    }
+
+    /**
+     * 에디터가 문서에 넣은 그림을 저장 전에 미리 올린다. 칸마다 복사된 그림이
+     * 문서 JSON을 키워 브라우저 메모리가 바닥나는 것을 막는다.
+     *
+     * @param array{tmp_name?:string,size?:int,error?:int} $file
+     */
+    public function storeUploadedMedia(int $userId, array $file): string
+    {
+        if ($userId <= 0) {
+            throw new RuntimeException('로그인이 필요합니다.');
+        }
+        if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('그림 파일을 받지 못했습니다.');
+        }
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            throw new RuntimeException('그림 파일을 받지 못했습니다.');
+        }
+        $size = (int) ($file['size'] ?? 0);
+        if ($size > self::MEDIA_MAX_BYTES) {
+            throw new RuntimeException('그림은 12MB 이하만 올릴 수 있습니다.');
+        }
+        if ($size < 32) {
+            throw new RuntimeException('그림 파일이 비어 있거나 손상되었습니다.');
+        }
+        $info = @getimagesize($tmp);
+        $ext = match ($info[2] ?? 0) {
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_WEBP => 'webp',
+            IMAGETYPE_GIF => 'gif',
+            default => '',
+        };
+        if ($ext === '') {
+            throw new RuntimeException('PNG, JPG, WEBP, GIF 그림만 올릴 수 있습니다.');
+        }
+        $bin = file_get_contents($tmp);
+        $url = $bin === false ? null : $this->storeMediaBinary($userId, $bin, $ext);
+        if ($url === null) {
+            throw new RuntimeException('그림을 저장하지 못했습니다.');
+        }
+        return $url;
+    }
+
+    private function storeMediaBinary(int $userId, string $bin, string $ext): ?string
+    {
+        if (strlen($bin) < 32 || strlen($bin) > self::MEDIA_MAX_BYTES) {
             return null;
         }
 

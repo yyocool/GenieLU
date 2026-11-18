@@ -30,5 +30,6 @@ builder.Services.AddScoped<DataImportService>();
 builder.Services.AddScoped<ExternalImportService>();
 builder.Services.AddScoped<EditorCloudStorage>();
 builder.Services.AddScoped<DesignSaveService>();
+builder.Services.AddScoped<MediaOffloadService>();
 
 await builder.Build().RunAsync();

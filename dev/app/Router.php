@@ -431,6 +431,7 @@ final class Router
         $router->get('/api/editor/workspaces', [$editorWorkspaceApi, 'index']);
         $router->get('/api/editor/workspace', [$editorWorkspaceApi, 'show']);
         $router->post('/api/editor/workspace', [$editorWorkspaceApi, 'save']);
+        $router->post('/api/editor/media', [$editorWorkspaceApi, 'media']);
         $router->post('/api/library/trash', [$libraryApi, 'trash']);
         $router->post('/api/library/restore', [$libraryApi, 'restore']);
         $router->post('/api/library/purge', [$libraryApi, 'purge']);

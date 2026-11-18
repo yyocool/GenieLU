@@ -172,6 +172,9 @@
             h = HashCode.Combine(h, o.Type, o.X, o.Y, o.Width, o.Height);
             h = HashCode.Combine(h, o.Rotation, o.ImageData?.Length ?? 0, o.Text, o.Visible, o.RichText?.Count ?? 0);
             h = HashCode.Combine(h, o.CustomKind, o.CustomFormat, o.SerialStart, o.SerialStep, o.SerialDigits, o.SerialRepeat);
+            // URL 이미지는 비동기로 받으므로, 도착 전에 그린 빈 썸네일을 도착 후 다시 그린다.
+            if (o.ImageData is { } src && !src.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                h = HashCode.Combine(h, src, BoundImageCache.IsLoaded(src));
         }
         return h.ToString("X8");
     }

@@ -36,9 +36,10 @@ final class EditorWorkspaceRepository extends BaseModel
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function listByUserId(int $userId, int $limit = 12, bool $trashed = false): array
+    public function listByUserId(int $userId, int $limit = 12, bool $trashed = false, int $offset = 0): array
     {
         $limit = max(1, min(200, $limit));
+        $offset = max(0, $offset);
         $cond = $trashed ? 'trashed_at IS NOT NULL' : 'trashed_at IS NULL';
         $order = $trashed ? 'trashed_at DESC, id DESC' : 'updated_at DESC, id DESC';
         return $this->fetchAll(
@@ -46,9 +47,19 @@ final class EditorWorkspaceRepository extends BaseModel
              FROM user_editor_workspaces
              WHERE user_id = :uid AND {$cond}
              ORDER BY {$order}
-             LIMIT {$limit}",
+             LIMIT {$limit} OFFSET {$offset}",
             ['uid' => $userId]
         );
+    }
+
+    public function countByUserId(int $userId, bool $trashed = false): int
+    {
+        $cond = $trashed ? 'trashed_at IS NOT NULL' : 'trashed_at IS NULL';
+        $row = $this->fetchOne(
+            "SELECT COUNT(*) AS n FROM user_editor_workspaces WHERE user_id = :uid AND {$cond}",
+            ['uid' => $userId]
+        );
+        return (int) ($row['n'] ?? 0);
     }
 
     public function trash(int $id, int $userId): bool
