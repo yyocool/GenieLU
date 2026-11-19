@@ -261,7 +261,11 @@
         ? '<img src="' + esc(p.thumbnail) + '" alt="" loading="lazy">'
         : '<span class="labi-ph" aria-hidden="true">' + (p.is_ink ? "C" : "▦") + "</span>";
       var price = (p.on_sale ? "<s>" + esc(p.list_price_label) + "</s>" : "") + "<i>" + esc(p.price_label) + "</i>";
-      var size = p.width_mm && p.height_mm ? Number(p.width_mm) + "×" + Number(p.height_mm) + "mm" : "";
+      var size = p.display_size_text
+        ? String(p.display_size_text)
+        : ((p.display_width_mm || p.width_mm) && (p.display_height_mm || p.height_mm)
+          ? Number(p.display_width_mm || p.width_mm) + "×" + Number(p.display_height_mm || p.height_mm) + "mm"
+          : "");
       var meta = [p.category, p.material, size, p.labels_per_sheet ? p.labels_per_sheet + "칸" : ""].filter(Boolean).join(" · ");
       return '<a class="labi-item" href="/shop/products/' + Number(p.id) + '">' + thumb +
         "<span><b>" + esc(p.name) + "</b><small>" + esc(meta) + "</small>" + price + "</span></a>";

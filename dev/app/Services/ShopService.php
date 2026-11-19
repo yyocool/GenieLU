@@ -94,11 +94,10 @@ final class ShopService
             if ($id <= 0) {
                 continue;
             }
-            $w = $product['width_mm'] ?? null;
-            $h = $product['height_mm'] ?? null;
             $specParts = [];
-            if ($w !== null && $w !== '' && $h !== null && $h !== '' && (float) $w > 0 && (float) $h > 0) {
-                $specParts[] = format_label_mm($w) . '×' . format_label_mm($h) . 'mm';
+            $displaySize = shop_label_display_size($product, 'compact');
+            if ($displaySize !== '') {
+                $specParts[] = $displaySize;
             }
             $material = trim((string) ($product['material'] ?? ''));
             if ($material !== '') {
@@ -490,12 +489,16 @@ final class ShopService
         }
         $w = $product['width_mm'] ?? null;
         $h = $product['height_mm'] ?? null;
+        $rawDisplayW = $product['display_width_mm'] ?? null;
+        $rawDisplayH = $product['display_height_mm'] ?? null;
+        $rawDisplayText = trim((string) ($product['display_size_text'] ?? ''));
         $labels = isset($product['labels_per_sheet']) ? (int) $product['labels_per_sheet'] : 0;
         $soldout = ($product['status'] ?? '') === 'soldout' || (!$isInk && (int) ($product['stock_qty'] ?? 0) <= 0);
+        $specSize = shop_label_display_size($product, 'compact');
         $spec = trim(implode(' · ', array_filter([
             (string) ($product['material'] ?? ''),
             (string) ($product['shape'] ?? ''),
-            ($w !== null && $h !== null && $w !== '' && $h !== '') ? "{$w}×{$h}mm" : '',
+            $specSize,
             $labels > 0 ? ($labels . '칸') : '',
         ])));
 
@@ -512,6 +515,11 @@ final class ShopService
             'spec_name' => (string) ($product['spec_name'] ?? ''),
             'width_mm' => $w !== null && $w !== '' ? (float) $w : null,
             'height_mm' => $h !== null && $h !== '' ? (float) $h : null,
+            'display_width_mm' => $rawDisplayW !== null && $rawDisplayW !== '' && (float) $rawDisplayW > 0
+                ? (float) $rawDisplayW : null,
+            'display_height_mm' => $rawDisplayH !== null && $rawDisplayH !== '' && (float) $rawDisplayH > 0
+                ? (float) $rawDisplayH : null,
+            'display_size_text' => $rawDisplayText !== '' ? $rawDisplayText : null,
             'labels_per_sheet' => $labels > 0 ? $labels : null,
             'shape' => (string) ($product['shape'] ?? ''),
             'material' => (string) ($product['material'] ?? ''),

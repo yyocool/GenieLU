@@ -260,6 +260,51 @@ function format_ai_krw(float|int|string|null $amount): string
     return number_format($n, 2);
 }
 
+/**
+ * 쇼핑몰 표기용 라벨 가로/세로(mm).
+ * 상품에 display_* 가 있으면 그걸 쓰고, 없으면 편집기 규격(width_mm/height_mm)을 쓴다.
+ *
+ * @param array<string, mixed> $product
+ */
+function shop_label_display_mm(array $product, string $axis = 'w'): float|int|string|null
+{
+    $displayKey = $axis === 'h' ? 'display_height_mm' : 'display_width_mm';
+    $specKey = $axis === 'h' ? 'height_mm' : 'width_mm';
+    $display = $product[$displayKey] ?? null;
+    if ($display !== null && $display !== '' && is_numeric($display) && (float) $display > 0) {
+        return $display;
+    }
+    return $product[$specKey] ?? null;
+}
+
+/**
+ * 쇼핑몰 표기용 규격 문자열. display_size_text(2set 등)가 있으면 그걸 쓰고,
+ * 없으면 표기치수 또는 편집기 치수를 mm로 보여 준다. 편집기 데이터는 바꾸지 않는다.
+ *
+ * @param array<string, mixed> $product
+ */
+function shop_label_display_size(array $product, string $style = 'detail'): string
+{
+    $text = trim((string) ($product['display_size_text'] ?? ''));
+    if ($text !== '') {
+        return $text;
+    }
+    $w = shop_label_display_mm($product, 'w');
+    $h = shop_label_display_mm($product, 'h');
+    if ($w === null || $h === null || $w === '' || $h === '') {
+        return '';
+    }
+    $fw = format_label_mm($w);
+    $fh = format_label_mm($h);
+    if ($fw === '' || $fh === '') {
+        return '';
+    }
+    if ($style === 'compact') {
+        return $fw . '×' . $fh . 'mm';
+    }
+    return $fw . ' × ' . $fh . ' mm';
+}
+
 /** 라벨 규격(mm). 소수 둘째 자리에서 반올림해 한 자리까지 표시(불필요한 0은 생략). */
 function format_label_mm(float|int|string|null $mm): string
 {

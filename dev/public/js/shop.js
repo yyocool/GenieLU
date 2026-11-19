@@ -299,7 +299,10 @@ function openOptionSheet(product, options) {
   thumb.hidden = !product.thumbnail;
   if (product.thumbnail) thumb.src = product.thumbnail;
   sheet.querySelector('[data-opt-sheet-name]').textContent = product.name || '';
-  const size = product.width_mm && product.height_mm ? `${product.width_mm}×${product.height_mm}mm` : '';
+  const size = product.display_size_text
+    || ((product.display_width_mm || product.width_mm) && (product.display_height_mm || product.height_mm)
+      ? `${product.display_width_mm || product.width_mm}×${product.display_height_mm || product.height_mm}mm`
+      : '');
   sheet.querySelector('[data-opt-sheet-spec]').textContent = [
     product.material,
     size,

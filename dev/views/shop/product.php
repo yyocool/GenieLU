@@ -164,10 +164,11 @@ $reviewCount = (int) ($reviewSummary['count'] ?? 0);
     <p class="shop-ink-note">구독이 아닌 1회 충전 상품입니다. 결제가 완료되면 구매한 수량만큼 계정에 잉크가 지급됩니다.</p>
     <?php elseif (!empty($product['spec_name']) || !empty($product['material']) || !empty($product['labels_per_sheet'])): ?>
     <ul class="shop-detail-specs">
-      <?php if ($product['width_mm'] !== null && $product['width_mm'] !== '' && $product['height_mm'] !== null && $product['height_mm'] !== ''): ?>
+      <?php $displaySize = shop_label_display_size($product); ?>
+      <?php if ($displaySize !== ''): ?>
       <li>
         <span>규격</span>
-        <strong><?= e(format_label_mm($product['width_mm'] ?? null)) ?> × <?= e(format_label_mm($product['height_mm'] ?? null)) ?> mm</strong>
+        <strong><?= e($displaySize) ?></strong>
       </li>
       <?php endif; ?>
       <?php if (!empty($product['material'])): ?>
